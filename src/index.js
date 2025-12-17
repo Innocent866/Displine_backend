@@ -14,16 +14,17 @@ const PORT = process.env.PORT || 5000;
 const app = express();
 
 app.use(express.json());
-app.use(
-  cors({
-    origin: process.env.CLIENT_ORIGIN || "https://discipline-frontend-seven.vercel.app/",
-    credentials: true,
-  })
-);
 
-app.get("/", (_req, res) => {
-  res.send("Disciplinary System API running...");
-});
+app.use(cors({
+  origin: ["https://discipline-frontend-seven.vercel.app"],
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+  credentials: true
+}));
+
+// IMPORTANT: Handle preflight requests
+app.options("*", cors());
+
 
 // API routes
 app.use("/api/auth", authRoutes);
@@ -33,6 +34,10 @@ app.use("/api/offense-types", offenseTypeRoutes);
 app.use("/api/punishments", punishmentRoutes);
 app.use("/api/cases", caseRoutes);
 app.use("/api/audit-logs", auditRoutes);
+
+app.get("/", (_req, res) => {
+  res.send("Disciplinary System API running...");
+});
 
 connectDB()
   .then(() => {
