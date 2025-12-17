@@ -23,7 +23,7 @@ app.use(cors({
 }));
 
 // IMPORTANT: Handle preflight requests
-app.options("*", cors());
+// app.options("/*", cors());
 
 
 // API routes
