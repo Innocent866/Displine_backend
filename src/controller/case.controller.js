@@ -131,3 +131,57 @@ export const deleteCase = async (req, res) => {
   res.json({ success: true, message: "Case deleted" });
 };
 
+export const unapproveCase = async (req, res) => {
+  if (req.user.role !== "admin") {
+    return res.status(403).json({ message: "Admins only" });
+  }
+
+  const record = await DisciplineCase.findById(req.params.id);
+  if (!record) return res.status(404).json({ message: "Case not found" });
+
+  if (record.status !== "approved") {
+     return res.status(400).json({ message: "Case is not in approved status" });
+  }
+
+  record.status = "pending";
+  await record.save();
+
+  await AuditLog.create({
+    user: req.user._id,
+    action: "unapprove_case",
+    targetType: "DisciplineCase",
+    targetId: record._id,
+    metadata: { previousStatus: "approved" },
+  });
+
+  res.json({ success: true, data: record });
+};
+
+export const unresolveCase = async (req, res) => {
+  if (req.user.role !== "admin") {
+    return res.status(403).json({ message: "Admins only" });
+  }
+
+  const record = await DisciplineCase.findById(req.params.id);
+  if (!record) return res.status(404).json({ message: "Case not found" });
+
+  if (!record.isResolved) {
+     return res.status(400).json({ message: "Case is not resolved" });
+  }
+
+  record.status = "approved";
+  record.isResolved = false;
+  record.resolutionNotes = undefined;
+  await record.save();
+
+  await AuditLog.create({
+    user: req.user._id,
+    action: "unresolve_case",
+    targetType: "DisciplineCase",
+    targetId: record._id,
+    metadata: { previousStatus: "resolved" },
+  });
+
+  res.json({ success: true, data: record });
+};
+
