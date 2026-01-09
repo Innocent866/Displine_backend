@@ -6,7 +6,7 @@ const studentSchema = new mongoose.Schema(
     lastName: { type: String, required: true, trim: true },
     studentId: { type: String, required: true, unique: true, trim: true },
     className: { type: String, required: true, trim: true },
-    status: { type: String, enum: ["active", "inactive"], default: "active" },
+    status: { type: String, enum: ["Day", "Boarder"], default: "Day" },
   },
   { timestamps: true }
 );
