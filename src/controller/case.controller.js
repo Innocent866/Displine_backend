@@ -8,6 +8,8 @@ export const createCase = async (req, res) => {
       reporter: req.user._id,
       status: req.user.role === "admin" ? "approved" : "pending",
     };
+    if (payload.offenseType === "") payload.offenseType = undefined;
+    if (payload.suggestedPunishment === "") payload.suggestedPunishment = undefined;
     const record = await DisciplineCase.create(payload);
     await AuditLog.create({
       user: req.user._id,
@@ -55,7 +57,11 @@ export const updateCase = async (req, res) => {
       .json({ message: "Not allowed to edit this disciplinary case" });
   }
 
-  Object.assign(record, req.body);
+  const updates = { ...req.body };
+  if (updates.offenseType === "") updates.offenseType = undefined;
+  if (updates.suggestedPunishment === "") updates.suggestedPunishment = undefined;
+
+  Object.assign(record, updates);
   await record.save();
 
   await AuditLog.create({

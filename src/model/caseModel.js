@@ -4,9 +4,9 @@ const caseSchema = new mongoose.Schema(
   {
     student: { type: mongoose.Schema.Types.ObjectId, ref: "Student", required: true },
     reporter: { type: mongoose.Schema.Types.ObjectId, ref: "Users", required: true },
-    offenseType: { type: mongoose.Schema.Types.ObjectId, ref: "OffenseType", required: true },
-    description: { type: String, required: true },
-    eventDate: { type: Date, required: true },
+    offenseType: { type: mongoose.Schema.Types.ObjectId, ref: "OffenseType" },
+    description: { type: String },
+    eventDate: { type: Date },
     location: { type: String, trim: true },
     suggestedPunishment: { type: mongoose.Schema.Types.ObjectId, ref: "PunishmentTemplate" },
     status: {
