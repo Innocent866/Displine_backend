@@ -24,7 +24,7 @@ const memberSchema = new mongoose.Schema(
 
     role: {
       type: String,
-      enum: ["admin", "committee"],
+      enum: ["admin", "committee", "teacher", "house_parent", "management", "hod"],
       default: "committee",
     },
 
@@ -36,6 +36,17 @@ const memberSchema = new mongoose.Schema(
 
     picture: {
       type: String,
+    },
+    
+    department: {
+        type: String,
+        trim: true,
+        default: "",
+    },
+    
+    permissionsCount: {
+        type: Number,
+        default: 0,
     },
   },
   {

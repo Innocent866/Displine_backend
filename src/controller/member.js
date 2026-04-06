@@ -10,7 +10,7 @@ export const createMember = async (req, res) => {
   session.startTransaction();
 
   try {
-    const { fullName, email, password, role, status, picture } = req.body;
+    const { fullName, email, password, role, status, picture, department, permissionsCount } = req.body;
 
     // Check if email already exists
     const existingUser = await User.findOne({ email });
@@ -35,6 +35,8 @@ export const createMember = async (req, res) => {
       role,
       status,
       picture,
+      department,
+      permissionsCount: permissionsCount || 0,
     });
     await member.save({ session });
 

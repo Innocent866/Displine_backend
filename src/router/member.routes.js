@@ -11,13 +11,15 @@ import { adminOnly } from "../middleware/adminRole.js";
 
 const router = Router();
 
-router.use(protect, adminOnly);
+// Regular protection for viewing
+router.use(protect);
 
-router.post("/", createMember);
 router.get("/", getAllMembers);
 router.get("/:id", getMemberById);
-router.put("/:id", updateMember);
-router.delete("/:id", deleteMember);
+
+// Admin-only protection for modifications
+router.post("/", adminOnly, createMember);
+router.put("/:id", adminOnly, updateMember);
+router.delete("/:id", adminOnly, deleteMember);
 
 export default router;
-

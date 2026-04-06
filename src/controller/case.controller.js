@@ -1,5 +1,6 @@
 import DisciplineCase from "../model/caseModel.js";
-import AuditLog from "../model/auditLogModel.js";
+import User from "../model/userModel.js";
+import Notification from "../model/notificationModel.js";
 
 export const createCase = async (req, res) => {
   try {
@@ -8,25 +9,60 @@ export const createCase = async (req, res) => {
       reporter: req.user._id,
       status: req.user.role === "admin" ? "approved" : "pending",
     };
-    if (payload.offenseType === "") payload.offenseType = undefined;
-    if (payload.suggestedPunishment === "") payload.suggestedPunishment = undefined;
-    const record = await DisciplineCase.create(payload);
-    await AuditLog.create({
-      user: req.user._id,
-      action: "create_case",
-      targetType: "DisciplineCase",
-      targetId: record._id,
-      metadata: payload,
+
+    // Sanitize empty strings for ObjectId/Date fields to avoid CastError
+    const fieldsToSanitize = ["student", "teacher", "offenseType", "suggestedPunishment", "eventDate"];
+    fieldsToSanitize.forEach(field => {
+      if (payload[field] === "" || payload[field] === null) {
+        payload[field] = undefined;
+      }
     });
+
+    const record = await DisciplineCase.create(payload);
+
+    // Create notifications for committee and management
+    const recipients = await User.find({ role: { $in: ["committee", "management", "admin"] } });
+    const notificationPromises = recipients.map((user) => {
+      if (user._id.toString() === req.user._id.toString()) return null;
+      return Notification.create({
+        recipient: user._id,
+        caseId: record._id,
+        message: `New disciplinary case filed by ${req.user.fullName}`,
+      });
+    });
+    await Promise.all(notificationPromises.filter(p => p !== null));
+
     res.status(201).json({ success: true, data: record });
   } catch (error) {
     res.status(400).json({ success: false, message: error.message });
   }
 };
 
-export const listCases = async (_req, res) => {
-  const cases = await DisciplineCase.find()
+export const listCases = async (req, res) => {
+  let query = {};
+  const { role, _id } = req.user;
+  const userRole = (role || "").toLowerCase();
+  
+  if (userRole === "admin") {
+    // Admin sees all cases
+    query = {};
+  } else if (userRole === "committee") {
+    // Committee only sees student cases (including legacy docs without targetType)
+    query = { targetType: { $in: ["student", null, undefined] } };
+  } else if (userRole === "management" || userRole === "hod") {
+    // HOD and Management see student and teacher cases
+    query = { targetType: { $in: ["student", "teacher", null, undefined] } };
+  } else if (userRole === "house_parent") {
+    // House parents see their own boarding cases
+    query = { reporter: _id, targetType: "boarding" };
+  } else {
+    // Other roles see their own cases
+    query = { reporter: _id };
+  }
+
+  const cases = await DisciplineCase.find(query)
     .populate("student")
+    .populate("teacher", "fullName picture")
     .populate("offenseType")
     .populate("suggestedPunishment")
     .populate("reporter", "fullName role");
@@ -36,6 +72,7 @@ export const listCases = async (_req, res) => {
 export const getCase = async (req, res) => {
   const record = await DisciplineCase.findById(req.params.id)
     .populate("student")
+    .populate("teacher", "fullName picture")
     .populate("offenseType")
     .populate("suggestedPunishment")
     .populate("reporter", "fullName role");
@@ -64,14 +101,6 @@ export const updateCase = async (req, res) => {
   Object.assign(record, updates);
   await record.save();
 
-  await AuditLog.create({
-    user: req.user._id,
-    action: "update_case",
-    targetType: "DisciplineCase",
-    targetId: record._id,
-    metadata: req.body,
-  });
-
   res.json({ success: true, data: record });
 };
 
@@ -89,14 +118,6 @@ export const resolveCase = async (req, res) => {
   record.resolutionNotes = req.body.resolutionNotes;
   await record.save();
 
-  await AuditLog.create({
-    user: req.user._id,
-    action: "resolve_case",
-    targetType: "DisciplineCase",
-    targetId: record._id,
-    metadata: req.body,
-  });
-
   res.json({ success: true, data: record });
 };
 
@@ -111,14 +132,6 @@ export const approveCase = async (req, res) => {
   record.status = "approved";
   await record.save();
 
-  await AuditLog.create({
-    user: req.user._id,
-    action: "approve_case",
-    targetType: "DisciplineCase",
-    targetId: record._id,
-    metadata: { previousStatus: record.status },
-  });
-
   res.json({ success: true, data: record });
 };
 
@@ -128,12 +141,6 @@ export const deleteCase = async (req, res) => {
   }
   const record = await DisciplineCase.findByIdAndDelete(req.params.id);
   if (!record) return res.status(404).json({ message: "Case not found" });
-  await AuditLog.create({
-    user: req.user._id,
-    action: "delete_case",
-    targetType: "DisciplineCase",
-    targetId: record._id,
-  });
   res.json({ success: true, message: "Case deleted" });
 };
 
@@ -151,14 +158,6 @@ export const unapproveCase = async (req, res) => {
 
   record.status = "pending";
   await record.save();
-
-  await AuditLog.create({
-    user: req.user._id,
-    action: "unapprove_case",
-    targetType: "DisciplineCase",
-    targetId: record._id,
-    metadata: { previousStatus: "approved" },
-  });
 
   res.json({ success: true, data: record });
 };
@@ -179,14 +178,6 @@ export const unresolveCase = async (req, res) => {
   record.isResolved = false;
   record.resolutionNotes = undefined;
   await record.save();
-
-  await AuditLog.create({
-    user: req.user._id,
-    action: "unresolve_case",
-    targetType: "DisciplineCase",
-    targetId: record._id,
-    metadata: { previousStatus: "resolved" },
-  });
 
   res.json({ success: true, data: record });
 };
